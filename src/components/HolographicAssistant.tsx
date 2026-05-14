@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Float, Text, MeshDistortMaterial, MeshWobbleMaterial, Sphere } from '@react-three/drei';
+import { performAssistantAction, routeAssistantCommand } from '../utils/assistantCommandRouter';
 
 export type AssistantMode = 'standby' | 'listening' | 'speaking' | 'waking';
 
@@ -341,6 +342,8 @@ export default function HolographicAssistant({
   const recognitionStateRef = useRef<'idle' | 'starting' | 'active'>('idle');
   const allowAutoRestartRef = useRef(true);
   const startAttemptInFlightRef = useRef(false);
+  const lastHandledCommandRef = useRef<string>('');
+  const lastHandledAtRef = useRef<number>(0);
 
   const devLog = useCallback((...args: unknown[]) => {
     if (!VOICE_DEBUG_ENABLED) return;
@@ -478,11 +481,20 @@ export default function HolographicAssistant({
     };
 
     recognition.onresult = (event) => {
-      const latest = Array.from(event.results)
-        .slice(event.resultIndex)
+      if (window.speechSynthesis?.speaking) return;
+
+      const results = Array.from(event.results).slice(event.resultIndex);
+      const finalText = results
+        .filter((result) => result.isFinal)
         .map((result) => result[0]?.transcript ?? '')
         .join(' ')
         .trim();
+      const interimText = results
+        .filter((result) => !result.isFinal)
+        .map((result) => result[0]?.transcript ?? '')
+        .join(' ')
+        .trim();
+      const latest = (finalText || interimText).trim();
 
       if (!latest) return;
 
@@ -491,6 +503,22 @@ export default function HolographicAssistant({
       if (/hey\s+saniya/i.test(latest) && !hasGreetedRef.current) {
         devLog('[voice] wakeword detected', latest);
         activateAssistant();
+        return;
+      }
+
+      if (hasGreetedRef.current && finalText) {
+        const now = Date.now();
+        if (now - lastHandledAtRef.current < 1200) return;
+        if (finalText === lastHandledCommandRef.current) return;
+
+        const routed = routeAssistantCommand(finalText);
+        if (!routed) return;
+
+        lastHandledAtRef.current = now;
+        lastHandledCommandRef.current = finalText;
+        devLog('[voice] command detected', finalText);
+        performAssistantAction(routed.action);
+        speak(routed.response);
       }
     };
 
