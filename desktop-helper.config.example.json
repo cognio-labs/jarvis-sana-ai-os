@@ -1,0 +1,12 @@
+{
+  "enabled": false,
+  "requireConfirmation": true,
+  "allowedApps": {
+    "notepad": {
+      "command": "notepad.exe"
+    },
+    "calculator": {
+      "command": "calc.exe"
+    }
+  }
+}

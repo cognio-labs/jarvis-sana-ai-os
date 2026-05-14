@@ -1,6 +1,7 @@
 export type AssistantAction =
   | { type: 'open_url'; url: string }
   | { type: 'sms_compose'; to: string; body?: string }
+  | { type: 'open_app'; app: string }
   | { type: 'none' };
 
 export type AssistantCommandResult = {
@@ -40,6 +41,13 @@ const urlAliases: Record<string, string> = {
   maps: 'https://www.google.com/maps',
 };
 
+const appAliases: Record<string, string> = {
+  notepad: 'notepad',
+  notes: 'notepad',
+  calculator: 'calculator',
+  calc: 'calculator',
+};
+
 export function routeAssistantCommand(raw: string): AssistantCommandResult | null {
   const text = normalize(raw);
   if (!text) return null;
@@ -55,8 +63,18 @@ export function routeAssistantCommand(raw: string): AssistantCommandResult | nul
   if (text.startsWith('open ')) {
     const target = text.slice('open '.length).trim();
     const url = urlAliases[target] ?? (target.startsWith('http') ? target : '');
+    const app = appAliases[target];
+    if (app) {
+      return {
+        response: `Confirm on screen to open ${target}.`,
+        action: { type: 'open_app', app },
+      };
+    }
     if (!url) {
-      return { response: `I can open websites like YouTube, WhatsApp, Gmail. I don't know "${target}".`, action: { type: 'none' } };
+      return {
+        response: `I can open websites like YouTube, WhatsApp, Gmail. I don't know "${target}".`,
+        action: { type: 'none' },
+      };
     }
     return { response: `Opening ${target}.`, action: { type: 'open_url', url } };
   }
@@ -93,6 +111,15 @@ export function performAssistantAction(action: AssistantAction) {
   }
   if (action.type === 'sms_compose') {
     window.location.href = buildSmsUrl(action.to, action.body);
+    return;
+  }
+  if (action.type === 'open_app') {
+    const confirmed = window.confirm(`Allow Jarvis to open "${action.app}" on this computer?`);
+    if (!confirmed) return;
+    void fetch('/api/desktop/open-app', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ app: action.app, confirmed: true }),
+    }).catch(() => {});
   }
 }
-

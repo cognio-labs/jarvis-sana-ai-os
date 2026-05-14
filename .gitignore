@@ -34,3 +34,6 @@ next-env.d.ts
 
 # logs
 *.log
+
+# local desktop helper config
+desktop-helper.config.json
