@@ -4,7 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Float, Text, MeshDistortMaterial, MeshWobbleMaterial, Sphere } from '@react-three/drei';
 
-type AssistantMode = 'standby' | 'listening' | 'speaking' | 'waking';
+export type AssistantMode = 'standby' | 'listening' | 'speaking' | 'waking';
+
+export type VoiceStatus = {
+  mode: AssistantMode;
+  transcript: string;
+  isWakewordListening: boolean;
+  isMicCapturing: boolean;
+};
 
 type SpeechRecognitionConstructor = new () => SpeechRecognition;
 
@@ -301,7 +308,11 @@ function HologramScene({ mode, speechPulse }: { mode: AssistantMode; speechPulse
   );
 }
 
-export default function HolographicAssistant() {
+export default function HolographicAssistant({
+  onVoiceStatusChange,
+}: {
+  onVoiceStatusChange?: (status: VoiceStatus) => void;
+}) {
   const [mode, setMode] = useState<AssistantMode>('standby');
   const [transcript, setTranscript] = useState('Say "Hey Saniya"');
   const [speechPulse, setSpeechPulse] = useState(0);
@@ -533,6 +544,11 @@ export default function HolographicAssistant() {
       window.speechSynthesis?.cancel();
     };
   }, [activateAssistant, devLog]);
+
+  useEffect(() => {
+    if (!onVoiceStatusChange) return;
+    onVoiceStatusChange({ mode, transcript, isWakewordListening, isMicCapturing });
+  }, [isMicCapturing, isWakewordListening, mode, onVoiceStatusChange, transcript]);
 
   return (
     <div className={`hologram-shell mode-${mode}`}>
