@@ -47,7 +47,7 @@ export default function ClockPanel() {
         <div>
           <div className="text-3xl font-semibold text-white">{now ? formatTime(now) : '--:--:--'}</div>
           <div className="mt-1 font-mono text-xs uppercase tracking-[0.24em] text-slate-400">
-            {now ? formatDate(now) : 'Initializing clock…'}
+            {now ? formatDate(now) : 'Initializing clock...'}
           </div>
         </div>
         <Radar />
