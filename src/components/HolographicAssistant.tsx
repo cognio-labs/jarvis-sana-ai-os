@@ -351,7 +351,7 @@ export default function HolographicAssistant({
     console.log(...args);
   }, []);
 
-  const speak = useCallback((text: string) => {
+  const speak = useCallback((text: string, options?: { after?: () => void }) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
     window.speechSynthesis.cancel();
@@ -375,6 +375,7 @@ export default function HolographicAssistant({
       setSpeechPulse(0);
       setMode('listening');
       setTranscript('Listening...');
+      options?.after?.();
     };
 
     window.speechSynthesis.speak(utterance);
@@ -388,7 +389,11 @@ export default function HolographicAssistant({
     setTranscript('System initializing...');
     
     setTimeout(() => {
-      speak(welcomeLine);
+      speak(welcomeLine, {
+        after: () => {
+          speak('How can I help you?');
+        },
+      });
     }, 1000);
   }, [devLog, speak]);
 
