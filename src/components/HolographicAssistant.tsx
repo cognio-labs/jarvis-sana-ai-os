@@ -324,9 +324,11 @@ function HologramScene({
 export default function HolographicAssistant({
   onVoiceStatusChange,
   showNeuralFace = true,
+  minimalHud = false,
 }: {
   onVoiceStatusChange?: (status: VoiceStatus) => void;
   showNeuralFace?: boolean;
+  minimalHud?: boolean;
 }) {
   const [mode, setMode] = useState<AssistantMode>('standby');
   const [transcript, setTranscript] = useState('Say "Hey Saniya"');
@@ -583,44 +585,44 @@ export default function HolographicAssistant({
         <div className="absolute inset-0 pointer-events-none border border-cyan-500/5 rounded-full scale-125 rotate-45" />
       </motion.div>
 
-      <div className="mt-8 flex flex-col items-center gap-2">
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={mode}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="font-mono text-xs uppercase tracking-widest text-cyan-400/80"
-          >
-            {mode.toUpperCase()} MODE
-          </motion.p>
-        </AnimatePresence>
-        
-        <div className="glass-panel px-6 py-3 rounded-full border border-white/5 bg-black/40 min-w-[300px] text-center">
-          <p className="text-sm text-slate-300 font-light italic">
-            {transcript}
-          </p>
-        </div>
+      {!minimalHud ? (
+        <div className="mt-8 flex flex-col items-center gap-2">
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={mode}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="font-mono text-xs uppercase tracking-widest text-cyan-400/80"
+            >
+              {mode.toUpperCase()} MODE
+            </motion.p>
+          </AnimatePresence>
 
-        <div className="mt-3 flex items-center justify-center gap-5 font-mono text-[10px] uppercase tracking-[0.28em] text-slate-500">
-          <div className="flex items-center gap-2">
-            <span
-              className={`h-2 w-2 rounded-full ${
-                isMicCapturing ? 'bg-emerald-300 shadow-[0_0_16px_rgba(124,255,178,0.9)]' : 'bg-slate-700'
-              }`}
-            />
-            MIC {isMicCapturing ? 'ON' : 'OFF'}
+          <div className="glass-panel min-w-[300px] rounded-full border border-white/5 bg-black/40 px-6 py-3 text-center">
+            <p className="text-sm font-light italic text-slate-300">{transcript}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <span
-              className={`h-2 w-2 rounded-full ${
-                isWakewordListening ? 'bg-cyan-300 shadow-[0_0_16px_rgba(125,245,255,0.9)]' : 'bg-slate-700'
-              }`}
-            />
-            LISTEN {isWakewordListening ? 'ACTIVE' : 'IDLE'}
+
+          <div className="mt-3 flex items-center justify-center gap-5 font-mono text-[10px] uppercase tracking-[0.28em] text-slate-500">
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  isMicCapturing ? 'bg-emerald-300 shadow-[0_0_16px_rgba(124,255,178,0.9)]' : 'bg-slate-700'
+                }`}
+              />
+              MIC {isMicCapturing ? 'ON' : 'OFF'}
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  isWakewordListening ? 'bg-cyan-300 shadow-[0_0_16px_rgba(125,245,255,0.9)]' : 'bg-slate-700'
+                }`}
+              />
+              LISTEN {isWakewordListening ? 'ACTIVE' : 'IDLE'}
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
         <style jsx>{`
         .hologram-shell {
