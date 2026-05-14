@@ -301,9 +301,14 @@ export default function HolographicAssistant() {
   const [mode, setMode] = useState<AssistantMode>('standby');
   const [transcript, setTranscript] = useState('Say "Hey Saniya"');
   const [speechPulse, setSpeechPulse] = useState(0);
+  const [isWakewordListening, setIsWakewordListening] = useState(false);
+  const [isMicCapturing, setIsMicCapturing] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const restartTimerRef = useRef<number | null>(null);
   const hasGreetedRef = useRef(false);
+  const recognitionStateRef = useRef<'idle' | 'starting' | 'active'>('idle');
+  const allowAutoRestartRef = useRef(true);
+  const startAttemptInFlightRef = useRef(false);
 
   const speak = useCallback((text: string) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
@@ -314,22 +319,18 @@ export default function HolographicAssistant() {
     utterance.pitch = 1.0;
     utterance.volume = 1;
 
+    // Simulate lip sync pulse
+    let pulseInterval: number | null = null;
     utterance.onstart = () => {
       setMode('speaking');
       setTranscript(text);
-    };
-    
-    // Simulate lip sync pulse
-    let pulseInterval: any;
-    utterance.onstart = () => {
-      setMode('speaking');
-      pulseInterval = setInterval(() => {
+      pulseInterval = window.setInterval(() => {
         setSpeechPulse(Math.random() * 0.8 + 0.2);
       }, 100);
     };
 
     utterance.onend = () => {
-      clearInterval(pulseInterval);
+      if (pulseInterval) window.clearInterval(pulseInterval);
       setSpeechPulse(0);
       setMode('listening');
       setTranscript('Listening...');
@@ -341,6 +342,10 @@ export default function HolographicAssistant() {
   const activateAssistant = useCallback(() => {
     if (hasGreetedRef.current) return;
     hasGreetedRef.current = true;
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console -- Requested: runtime voice activation debug logs.
+      console.log('[voice] assistant activated');
+    }
     setMode('waking');
     setTranscript('System initializing...');
     
@@ -364,6 +369,85 @@ export default function HolographicAssistant() {
     recognition.lang = 'en-US';
     recognitionRef.current = recognition;
 
+    const devLog = (...args: unknown[]) => {
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console -- Requested: runtime voice activation debug logs.
+        console.log(...args);
+      }
+    };
+
+    const scheduleRestart = () => {
+      if (!allowAutoRestartRef.current) return;
+      if (restartTimerRef.current) window.clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = window.setTimeout(() => {
+        if (!recognitionRef.current) return;
+        if (recognitionStateRef.current !== 'idle') return;
+        try {
+          recognitionStateRef.current = 'starting';
+          recognition.start();
+        } catch {
+          recognitionStateRef.current = 'idle';
+        }
+      }, 500);
+    };
+
+    const ensureMicPermission = async () => {
+      if (!window.isSecureContext) {
+        setTranscript('Voice requires HTTPS or localhost');
+        devLog('[voice] blocked: insecure context');
+        return false;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setTranscript('Microphone unavailable');
+        devLog('[voice] blocked: navigator.mediaDevices.getUserMedia unavailable');
+        return false;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+        devLog('[voice] microphone started (getUserMedia granted)');
+        return true;
+      } catch (error) {
+        devLog('[voice] microphone blocked (getUserMedia error)', error);
+        return false;
+      }
+    };
+
+    const startWakewordListener = async (source: 'auto' | 'gesture') => {
+      if (startAttemptInFlightRef.current) return;
+      if (recognitionStateRef.current !== 'idle') return;
+
+      startAttemptInFlightRef.current = true;
+      try {
+        const micOk = await ensureMicPermission();
+        if (!micOk) {
+          allowAutoRestartRef.current = false;
+          setIsWakewordListening(false);
+          setIsMicCapturing(false);
+          if (source === 'auto') {
+            setTranscript('Click anywhere to enable microphone');
+            devLog('[voice] wakeword listener pending user gesture');
+          }
+          return;
+        }
+
+        try {
+          recognitionStateRef.current = 'starting';
+          recognition.start();
+          devLog('[voice] speech recognition active');
+        } catch (error) {
+          recognitionStateRef.current = 'idle';
+          allowAutoRestartRef.current = false;
+          setIsWakewordListening(false);
+          devLog('[voice] speech recognition failed to start', error);
+        }
+      } finally {
+        startAttemptInFlightRef.current = false;
+      }
+    };
+
     recognition.onresult = (event) => {
       const latest = Array.from(event.results)
         .slice(event.resultIndex)
@@ -376,24 +460,62 @@ export default function HolographicAssistant() {
       setTranscript(latest);
 
       if (/hey\s+saniya/i.test(latest) && !hasGreetedRef.current) {
+        devLog('[voice] wakeword detected', latest);
         activateAssistant();
       }
     };
 
     recognition.onend = () => {
-      if (restartTimerRef.current) window.clearTimeout(restartTimerRef.current);
-      restartTimerRef.current = window.setTimeout(() => {
-        try { recognition.start(); } catch {}
-      }, 500);
+      recognitionStateRef.current = 'idle';
+      setIsWakewordListening(false);
+      setIsMicCapturing(false);
+      scheduleRestart();
     };
 
-    try {
-      recognition.start();
-    } catch {}
+    recognition.onstart = () => {
+      recognitionStateRef.current = 'active';
+      allowAutoRestartRef.current = true;
+      setIsWakewordListening(true);
+      setMode((prev) => (prev === 'standby' ? 'listening' : prev));
+      devLog('[voice] speech recognition started');
+    };
+
+    recognition.onaudiostart = () => {
+      setIsMicCapturing(true);
+      devLog('[voice] microphone started (speech recognition audiostart)');
+    };
+
+    recognition.onaudioend = () => {
+      setIsMicCapturing(false);
+      devLog('[voice] microphone stopped (speech recognition audioend)');
+    };
+
+    recognition.onerror = (event) => {
+      recognitionStateRef.current = 'idle';
+      setIsWakewordListening(false);
+      setIsMicCapturing(false);
+
+      devLog('[voice] speech recognition error', event.error, event.message);
+
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        allowAutoRestartRef.current = false;
+        setTranscript('Click anywhere to enable microphone');
+      }
+    };
+
+    const clickToEnable = () => startWakewordListener('gesture').catch(() => {});
+    window.addEventListener('click', clickToEnable);
+    startWakewordListener('auto').catch(() => {});
 
     return () => {
       if (restartTimerRef.current) window.clearTimeout(restartTimerRef.current);
+      window.removeEventListener('click', clickToEnable);
       recognition.onend = null;
+      recognition.onstart = null;
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onaudiostart = null;
+      recognition.onaudioend = null;
       recognition.stop();
       window.speechSynthesis?.cancel();
     };
@@ -434,6 +556,25 @@ export default function HolographicAssistant() {
           <p className="text-sm text-slate-300 font-light italic">
             {transcript}
           </p>
+        </div>
+
+        <div className="mt-3 flex items-center justify-center gap-5 font-mono text-[10px] uppercase tracking-[0.28em] text-slate-500">
+          <div className="flex items-center gap-2">
+            <span
+              className={`h-2 w-2 rounded-full ${
+                isMicCapturing ? 'bg-emerald-300 shadow-[0_0_16px_rgba(124,255,178,0.9)]' : 'bg-slate-700'
+              }`}
+            />
+            MIC {isMicCapturing ? 'ON' : 'OFF'}
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`h-2 w-2 rounded-full ${
+                isWakewordListening ? 'bg-cyan-300 shadow-[0_0_16px_rgba(125,245,255,0.9)]' : 'bg-slate-700'
+              }`}
+            />
+            LISTEN {isWakewordListening ? 'ACTIVE' : 'IDLE'}
+          </div>
         </div>
       </div>
 
