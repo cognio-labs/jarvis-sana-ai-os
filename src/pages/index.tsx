@@ -119,9 +119,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="h-[108px]">
-                <CommandConsolePanel voice={voice} />
-              </div>
+              <CommandConsolePanel voice={voice} />
             </section>
 
             <aside className="grid gap-5">

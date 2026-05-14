@@ -14,7 +14,7 @@ export default function HoloPanel({
   return (
     <section className={`glass-panel holo-edge holo-card holo-noise relative ${className ?? ''}`}>
       {(title || right) && (
-        <header className="flex items-start justify-between gap-4 px-5 pt-4">
+        <header className="flex items-center justify-between gap-4 border-b border-cyan-300/15 px-5 pb-3 pt-4">
           {title ? (
             <div className="font-mono text-xs uppercase tracking-[0.28em] text-cyan-200/90">{title}</div>
           ) : (
@@ -27,4 +27,3 @@ export default function HoloPanel({
     </section>
   );
 }
-
