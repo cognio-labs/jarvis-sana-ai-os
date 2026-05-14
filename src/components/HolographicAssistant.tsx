@@ -1,9 +1,10 @@
-import { Canvas, useFrame } from '@react-three/fiber';
-import { motion } from 'framer-motion';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { Float, Text, MeshDistortMaterial, MeshWobbleMaterial, Sphere } from '@react-three/drei';
 
-type AssistantMode = 'standby' | 'listening' | 'speaking';
+type AssistantMode = 'standby' | 'listening' | 'speaking' | 'waking';
 
 type SpeechRecognitionConstructor = new () => SpeechRecognition;
 
@@ -13,213 +14,285 @@ type BrowserWindow = Window & {
 };
 
 const welcomeLine = 'Welcome back Aryan Boss.';
-const particleCount = 520;
+const particleCount = 800;
 
-function HologramMaterial({ mode }: { mode: AssistantMode }) {
-  const materialRef = useRef<THREE.ShaderMaterial>(null);
+// --- SHADERS ---
 
+const faceVertexShader = `
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  varying float vDist;
+  uniform float uTime;
+  uniform float uPulse;
+
+  void main() {
+    vNormal = normalize(normalMatrix * normal);
+    vPosition = position;
+    
+    // Add some organic movement
+    vec3 pos = position;
+    float dist = length(pos);
+    vDist = dist;
+    
+    pos.x += sin(pos.y * 5.0 + uTime) * 0.02 * uPulse;
+    pos.y += cos(pos.x * 5.0 + uTime) * 0.02 * uPulse;
+    
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+  }
+`;
+
+const faceFragmentShader = `
+  uniform float uTime;
+  uniform float uIntensity;
+  uniform vec3 uColor;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  varying float vDist;
+
+  void main() {
+    // Fresnel effect for edge glow
+    float fresnel = pow(1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.5);
+    
+    // Scanlines
+    float scanline = sin(vPosition.y * 60.0 - uTime * 10.0) * 0.5 + 0.5;
+    scanline = pow(scanline, 10.0) * 0.2;
+    
+    // Grid/Dots pattern
+    float grid = sin(vPosition.x * 40.0) * sin(vPosition.y * 40.0) * sin(vPosition.z * 40.0);
+    grid = step(0.95, grid);
+    
+    // Combine colors
+    vec3 finalColor = uColor;
+    float alpha = (fresnel * 0.8 + scanline + grid * 0.5) * uIntensity;
+    
+    // Add some "neural" noise
+    float noise = fract(sin(dot(vPosition.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    alpha += noise * 0.05 * uIntensity;
+
+    gl_FragColor = vec4(finalColor * (1.2 + fresnel * 2.0), alpha);
+  }
+`;
+
+// --- COMPONENTS ---
+
+function HUDRings({ mode }: { mode: AssistantMode }) {
+  const groupRef = useRef<THREE.Group>(null);
+  
   useFrame(({ clock }) => {
-    if (!materialRef.current) {
-      return;
-    }
-
-    materialRef.current.uniforms.uTime.value = clock.elapsedTime;
-    materialRef.current.uniforms.uIntensity.value =
-      mode === 'speaking' ? 1.65 : mode === 'listening' ? 1.25 : 0.82;
+    if (!groupRef.current) return;
+    const t = clock.elapsedTime;
+    
+    // Rotate rings at different speeds
+    groupRef.current.children.forEach((child, i) => {
+      child.rotation.z = t * (0.2 + i * 0.1) * (i % 2 === 0 ? 1 : -1);
+      child.rotation.x = Math.sin(t * 0.5) * 0.1;
+      child.rotation.y = Math.cos(t * 0.3) * 0.1;
+    });
   });
 
   return (
-    <shaderMaterial
-      ref={materialRef}
-      transparent
-      depthWrite={false}
-      blending={THREE.AdditiveBlending}
-      uniforms={{
-        uTime: { value: 0 },
-        uIntensity: { value: 0.85 },
-      }}
-      vertexShader={`
-        varying vec3 vNormal;
-        varying vec3 vPosition;
+    <group ref={groupRef}>
+      {/* Outer Ring */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[2.2, 2.22, 64]} />
+        <meshBasicMaterial color="#7df5ff" transparent opacity={0.3} side={THREE.DoubleSide} />
+      </mesh>
+      
+      {/* Middle Segmented Ring */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[1.8, 1.85, 64, 1, 0, Math.PI * 1.5]} />
+        <meshBasicMaterial color="#3bdcff" transparent opacity={0.4} side={THREE.DoubleSide} />
+      </mesh>
+      
+      {/* Inner Rotating Ring */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[1.5, 1.52, 32]} />
+        <meshBasicMaterial color="#bafcff" transparent opacity={0.2} side={THREE.DoubleSide} />
+      </mesh>
 
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          vPosition = position;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `}
-      fragmentShader={`
-        uniform float uTime;
-        uniform float uIntensity;
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-
-        void main() {
-          float fresnel = pow(1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.0);
-          float scan = 0.54 + 0.46 * sin((vPosition.y * 34.0) + (uTime * 7.0));
-          float neural = smoothstep(0.12, 0.96, fresnel + scan * 0.22);
-          vec3 color = mix(vec3(0.05, 0.55, 1.0), vec3(0.36, 1.0, 0.95), neural);
-          float alpha = (0.24 + fresnel * 0.72 + scan * 0.08) * uIntensity;
-          gl_FragColor = vec4(color * (1.0 + fresnel * 1.8), alpha);
-        }
-      `}
-    />
-  );
-}
-
-function NeuralConstellation({ active }: { active: boolean }) {
-  const lines = useMemo(() => {
-    const points: number[] = [];
-
-    for (let i = 0; i < 64; i += 1) {
-      const y = THREE.MathUtils.mapLinear(i, 0, 63, 0.86, -0.9);
-      const width = 0.08 + Math.sin(i * 0.72) * 0.03 + (1 - Math.abs(y)) * 0.28;
-      const x = Math.sin(i * 2.08) * width;
-      const z = 0.43 + Math.cos(i * 0.9) * 0.04;
-
-      if (i > 0) {
-        points.push(x, y, z);
-        points.push(Math.sin((i - 1) * 2.08) * width * 0.9, THREE.MathUtils.mapLinear(i - 1, 0, 63, 0.86, -0.9), z);
-      }
-    }
-
-    return new Float32Array(points);
-  }, []);
-
-  const ref = useRef<THREE.LineSegments>(null);
-
-  useFrame(({ clock }) => {
-    if (!ref.current) {
-      return;
-    }
-
-    ref.current.rotation.z = Math.sin(clock.elapsedTime * 0.35) * 0.025;
-    const material = ref.current.material as THREE.LineBasicMaterial;
-    material.opacity = active ? 0.48 : 0.25;
-  });
-
-  return (
-    <lineSegments ref={ref}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[lines, 3]} />
-      </bufferGeometry>
-      <lineBasicMaterial color="#7df5ff" transparent opacity={0.34} blending={THREE.AdditiveBlending} />
-    </lineSegments>
+      {/* Crosshair Dots */}
+      {[0, 90, 180, 270].map((angle) => (
+        <mesh 
+          key={angle}
+          position={[
+            Math.cos((angle * Math.PI) / 180) * 2.4,
+            Math.sin((angle * Math.PI) / 180) * 2.4,
+            0
+          ]}
+        >
+          <sphereGeometry args={[0.02, 8, 8]} />
+          <meshBasicMaterial color="#7df5ff" transparent opacity={0.6} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
 function ParticleField({ mode }: { mode: AssistantMode }) {
   const ref = useRef<THREE.Points>(null);
-  const positions = useMemo(() => {
-    const data = new Float32Array(particleCount * 3);
-
-    for (let i = 0; i < particleCount; i += 1) {
-      const radius = 1.45 + Math.random() * 1.55;
-      const angle = Math.random() * Math.PI * 2;
-      const height = (Math.random() - 0.5) * 3.2;
-      data[i * 3] = Math.cos(angle) * radius;
-      data[i * 3 + 1] = height;
-      data[i * 3 + 2] = Math.sin(angle) * radius * 0.34;
+  const { positions, colors } = useMemo(() => {
+    const pos = new Float32Array(particleCount * 3);
+    const col = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 2 - 1);
+      const r = 2.5 + Math.random() * 1.5;
+      
+      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      pos[i * 3 + 2] = r * Math.cos(phi);
+      
+      col[i * 3] = 0.49; // 125/255
+      col[i * 3 + 1] = 0.96; // 245/255
+      col[i * 3 + 2] = 1.0; // 255/255
     }
-
-    return data;
+    return { positions: pos, colors: col };
   }, []);
 
   useFrame(({ clock }) => {
-    if (!ref.current) {
-      return;
-    }
-
-    const speed = mode === 'speaking' ? 0.28 : mode === 'listening' ? 0.18 : 0.1;
-    ref.current.rotation.y = clock.elapsedTime * speed;
-    ref.current.rotation.z = Math.sin(clock.elapsedTime * 0.4) * 0.04;
+    if (!ref.current) return;
+    const t = clock.elapsedTime;
+    ref.current.rotation.y = t * 0.1;
+    ref.current.rotation.z = t * 0.05;
+    
+    const scale = mode === 'speaking' ? 1.2 : mode === 'listening' ? 1.1 : 1.0;
+    ref.current.scale.setScalar(THREE.MathUtils.lerp(ref.current.scale.x, scale, 0.1));
   });
 
   return (
     <points ref={ref}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
       </bufferGeometry>
-      <pointsMaterial
-        color={mode === 'speaking' ? '#8ffcff' : '#3bdcff'}
-        transparent
-        opacity={mode === 'standby' ? 0.42 : 0.72}
-        size={0.018}
-        blending={THREE.AdditiveBlending}
-        depthWrite={false}
+      <pointsMaterial 
+        size={0.015} 
+        vertexColors 
+        transparent 
+        opacity={0.4} 
+        blending={THREE.AdditiveBlending} 
+        sizeAttenuation 
       />
     </points>
   );
 }
 
-function HologramFace({ mode, speechPulse }: { mode: AssistantMode; speechPulse: number }) {
+function NeuralFace({ mode, speechPulse }: { mode: AssistantMode; speechPulse: number }) {
   const groupRef = useRef<THREE.Group>(null);
-  const mouthRef = useRef<THREE.Mesh>(null);
-  const leftLidRef = useRef<THREE.Mesh>(null);
-  const rightLidRef = useRef<THREE.Mesh>(null);
+  const headRef = useRef<THREE.Mesh>(null);
+  const mouthRef = useRef<THREE.Group>(null);
+  const eyesRef = useRef<THREE.Group>(null);
+
+  const uniforms = useMemo(() => ({
+    uTime: { value: 0 },
+    uIntensity: { value: 0.8 },
+    uPulse: { value: 0 },
+    uColor: { value: new THREE.Color('#7df5ff') }
+  }), []);
 
   useFrame(({ clock }) => {
-    const time = clock.elapsedTime;
-    const awakeBoost = mode === 'standby' ? 0.55 : 1;
+    const t = clock.elapsedTime;
+    uniforms.uTime.value = t;
+    
+    // Intensity based on mode
+    let targetIntensity = 0.8;
+    if (mode === 'speaking') targetIntensity = 1.2 + speechPulse * 0.5;
+    if (mode === 'listening') targetIntensity = 1.0 + Math.sin(t * 4) * 0.1;
+    if (mode === 'standby') targetIntensity = 0.6;
+    
+    uniforms.uIntensity.value = THREE.MathUtils.lerp(uniforms.uIntensity.value, targetIntensity, 0.1);
+    uniforms.uPulse.value = THREE.MathUtils.lerp(uniforms.uPulse.value, mode === 'speaking' ? 1 : 0, 0.1);
 
     if (groupRef.current) {
-      groupRef.current.rotation.y = Math.sin(time * 0.52) * 0.085 * awakeBoost;
-      groupRef.current.rotation.x = Math.sin(time * 0.38) * 0.035;
-      groupRef.current.position.y = Math.sin(time * 0.72) * 0.035;
-      groupRef.current.scale.setScalar(mode === 'speaking' ? 1.02 : 1);
+      // Subtle floating and breathing
+      groupRef.current.position.y = Math.sin(t * 0.5) * 0.05;
+      groupRef.current.rotation.y = Math.sin(t * 0.2) * 0.1;
+      groupRef.current.rotation.x = Math.cos(t * 0.3) * 0.05;
     }
 
-    if (mouthRef.current) {
-      const talking = mode === 'speaking' ? Math.abs(Math.sin(time * 15.5)) * 0.19 + speechPulse * 0.17 : 0.035;
-      mouthRef.current.scale.y = THREE.MathUtils.lerp(mouthRef.current.scale.y, talking, 0.28);
+    if (mouthRef.current && mode === 'speaking') {
+      const open = 0.05 + speechPulse * 0.4;
+      mouthRef.current.scale.y = THREE.MathUtils.lerp(mouthRef.current.scale.y, open, 0.3);
+    } else if (mouthRef.current) {
+      mouthRef.current.scale.y = THREE.MathUtils.lerp(mouthRef.current.scale.y, 0.05, 0.1);
     }
 
-    const blink = Math.sin(time * 2.4) > 0.984 ? 0.08 : 1;
-    if (leftLidRef.current && rightLidRef.current) {
-      leftLidRef.current.scale.y = THREE.MathUtils.lerp(leftLidRef.current.scale.y, blink, 0.35);
-      rightLidRef.current.scale.y = THREE.MathUtils.lerp(rightLidRef.current.scale.y, blink, 0.35);
+    // Blinking
+    if (eyesRef.current) {
+      const blink = Math.sin(t * 3) > 0.98 ? 0.1 : 1.0;
+      eyesRef.current.scale.y = THREE.MathUtils.lerp(eyesRef.current.scale.y, blink, 0.4);
     }
   });
 
   return (
-    <group ref={groupRef} position={[0, 0.06, 0]}>
-      <mesh scale={[0.74, 1.05, 0.48]}>
-        <sphereGeometry args={[1, 96, 96]} />
-        <HologramMaterial mode={mode} />
+    <group ref={groupRef}>
+      {/* The "Head" - Egg shape with holographic shader */}
+      <mesh ref={headRef} scale={[1, 1.3, 0.9]}>
+        <sphereGeometry args={[1, 64, 64]} />
+        <shaderMaterial 
+          vertexShader={faceVertexShader}
+          fragmentShader={faceFragmentShader}
+          uniforms={uniforms}
+          transparent
+          side={THREE.DoubleSide}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
       </mesh>
 
-      <mesh position={[-0.24, 0.2, 0.48]} scale={[0.18, 0.035, 0.012]} ref={leftLidRef}>
-        <sphereGeometry args={[1, 32, 16]} />
-        <meshBasicMaterial color="#bafcff" transparent opacity={0.96} blending={THREE.AdditiveBlending} />
-      </mesh>
-      <mesh position={[0.24, 0.2, 0.48]} scale={[0.18, 0.035, 0.012]} ref={rightLidRef}>
-        <sphereGeometry args={[1, 32, 16]} />
-        <meshBasicMaterial color="#bafcff" transparent opacity={0.96} blending={THREE.AdditiveBlending} />
-      </mesh>
+      {/* Eyes */}
+      <group ref={eyesRef} position={[0, 0.3, 0.8]}>
+        <mesh position={[-0.3, 0, 0]}>
+          <sphereGeometry args={[0.08, 16, 16]} />
+          <meshBasicMaterial color="#bafcff" transparent opacity={0.8} />
+        </mesh>
+        <mesh position={[0.3, 0, 0]}>
+          <sphereGeometry args={[0.08, 16, 16]} />
+          <meshBasicMaterial color="#bafcff" transparent opacity={0.8} />
+        </mesh>
+        {/* Glow behind eyes */}
+        <pointLight color="#7df5ff" intensity={0.5} distance={2} />
+      </group>
 
-      <mesh position={[0, -0.35, 0.52]} scale={[0.28, 0.06, 0.014]} ref={mouthRef}>
-        <sphereGeometry args={[1, 48, 16]} />
-        <meshBasicMaterial color="#7df5ff" transparent opacity={0.88} blending={THREE.AdditiveBlending} />
-      </mesh>
+      {/* Mouth / Audio Reactive Line */}
+      <group ref={mouthRef} position={[0, -0.4, 0.85]}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.2, 0.01, 16, 32]} />
+          <meshBasicMaterial color="#7df5ff" transparent opacity={0.8} />
+        </mesh>
+      </group>
 
-      <mesh position={[0, -1.05, 0]} scale={[0.52, 0.7, 0.34]}>
-        <sphereGeometry args={[1, 48, 32]} />
-        <HologramMaterial mode={mode} />
-      </mesh>
-
-      <NeuralConstellation active={mode !== 'standby'} />
+      {/* Neural Lines (Internal Structure) */}
+      <group scale={[0.9, 1.2, 0.8]}>
+        <mesh>
+          <sphereGeometry args={[1, 16, 16]} />
+          <meshBasicMaterial color="#7df5ff" wireframe transparent opacity={0.15} />
+        </mesh>
+      </group>
     </group>
   );
 }
 
 function HologramScene({ mode, speechPulse }: { mode: AssistantMode; speechPulse: number }) {
   return (
-    <Canvas camera={{ position: [0, 0.08, 4.5], fov: 42 }} gl={{ antialias: true, alpha: true }}>
-      <ambientLight intensity={0.25} />
-      <pointLight position={[0, 1.5, 2.5]} color="#7df5ff" intensity={mode === 'speaking' ? 3.8 : 2.7} />
-      <pointLight position={[-2.2, -0.6, 1.6]} color="#ff4fd8" intensity={mode === 'standby' ? 0.7 : 1.2} />
+    <Canvas camera={{ position: [0, 0, 6], fov: 35 }} gl={{ antialias: true, alpha: true }}>
+      <color attach="background" args={['transparent']} />
+      <ambientLight intensity={0.2} />
+      <pointLight position={[10, 10, 10]} intensity={1} color="#7df5ff" />
+      <pointLight position={[-10, -10, -10]} intensity={0.5} color="#ff4fd8" />
+      
+      <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
+        <NeuralFace mode={mode} speechPulse={speechPulse} />
+        <HUDRings mode={mode} />
+      </Float>
+      
       <ParticleField mode={mode} />
-      <HologramFace mode={mode} speechPulse={speechPulse} />
+      
+      {/* Bloom-like effect using a large faint sphere */}
+      <mesh scale={[10, 10, 10]}>
+        <sphereGeometry args={[1, 32, 32]} />
+        <meshBasicMaterial color="#0a121e" transparent opacity={0.05} side={THREE.BackSide} />
+      </mesh>
     </Canvas>
   );
 }
@@ -232,39 +305,49 @@ export default function HolographicAssistant() {
   const restartTimerRef = useRef<number | null>(null);
   const hasGreetedRef = useRef(false);
 
-  const speakWelcome = useCallback(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      setMode('listening');
-      setTranscript(welcomeLine);
-      return;
-    }
+  const speak = useCallback((text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(welcomeLine);
-    utterance.rate = 0.92;
-    utterance.pitch = 0.82;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
     utterance.volume = 1;
 
     utterance.onstart = () => {
       setMode('speaking');
-      setTranscript(welcomeLine);
+      setTranscript(text);
     };
-    utterance.onboundary = () => setSpeechPulse(Math.random() * 0.8 + 0.2);
+    
+    // Simulate lip sync pulse
+    let pulseInterval: any;
+    utterance.onstart = () => {
+      setMode('speaking');
+      pulseInterval = setInterval(() => {
+        setSpeechPulse(Math.random() * 0.8 + 0.2);
+      }, 100);
+    };
+
     utterance.onend = () => {
+      clearInterval(pulseInterval);
       setSpeechPulse(0);
       setMode('listening');
-      setTranscript('Listening');
+      setTranscript('Listening...');
     };
 
     window.speechSynthesis.speak(utterance);
   }, []);
 
   const activateAssistant = useCallback(() => {
+    if (hasGreetedRef.current) return;
     hasGreetedRef.current = true;
-    setMode('listening');
-    setTranscript('Wakeword confirmed');
-    window.setTimeout(speakWelcome, 360);
-  }, [speakWelcome]);
+    setMode('waking');
+    setTranscript('System initializing...');
+    
+    setTimeout(() => {
+      speak(welcomeLine);
+    }, 1000);
+  }, [speak]);
 
   useEffect(() => {
     const browserWindow = window as BrowserWindow;
@@ -272,7 +355,7 @@ export default function HolographicAssistant() {
 
     if (!Recognition) {
       setTranscript('Speech recognition unavailable');
-      return undefined;
+      return;
     }
 
     const recognition = new Recognition();
@@ -288,12 +371,9 @@ export default function HolographicAssistant() {
         .join(' ')
         .trim();
 
-      if (!latest) {
-        return;
-      }
+      if (!latest) return;
 
       setTranscript(latest);
-      setMode((current) => (current === 'speaking' ? current : 'listening'));
 
       if (/hey\s+saniya/i.test(latest) && !hasGreetedRef.current) {
         activateAssistant();
@@ -301,29 +381,18 @@ export default function HolographicAssistant() {
     };
 
     recognition.onend = () => {
-      if (restartTimerRef.current) {
-        window.clearTimeout(restartTimerRef.current);
-      }
-
+      if (restartTimerRef.current) window.clearTimeout(restartTimerRef.current);
       restartTimerRef.current = window.setTimeout(() => {
-        try {
-          recognition.start();
-        } catch {
-          setTranscript('Voice scanner standing by');
-        }
-      }, 900);
+        try { recognition.start(); } catch {}
+      }, 500);
     };
 
     try {
       recognition.start();
-    } catch {
-      setTranscript('Voice scanner standing by');
-    }
+    } catch {}
 
     return () => {
-      if (restartTimerRef.current) {
-        window.clearTimeout(restartTimerRef.current);
-      }
+      if (restartTimerRef.current) window.clearTimeout(restartTimerRef.current);
       recognition.onend = null;
       recognition.stop();
       window.speechSynthesis?.cancel();
@@ -331,26 +400,63 @@ export default function HolographicAssistant() {
   }, [activateAssistant]);
 
   return (
-    <div className={`hologram-shell hologram-${mode}`}>
+    <div className={`hologram-shell mode-${mode}`}>
       <motion.div
         className="hologram-stage"
-        animate={{
-          opacity: mode === 'standby' ? 0.78 : 1,
-          scale: mode === 'speaking' ? 1.025 : 1,
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ 
+          opacity: mode === 'standby' ? 0.6 : 1,
+          scale: mode === 'waking' ? [1, 1.1, 1] : 1
         }}
-        transition={{ duration: 0.55, ease: 'easeOut' }}
+        transition={{ duration: 0.8 }}
       >
         <HologramScene mode={mode} speechPulse={speechPulse} />
-        <div className="hologram-reticle" />
-        <div className="hologram-platform" />
+        
+        {/* Decorative HUD overlays */}
+        <div className="absolute inset-0 pointer-events-none border border-cyan-500/10 rounded-full scale-110 animate-pulse" />
+        <div className="absolute inset-0 pointer-events-none border border-cyan-500/5 rounded-full scale-125 rotate-45" />
       </motion.div>
 
-      <div className="mt-5 w-full max-w-xl text-center">
-        <p className="font-mono text-sm uppercase tracking-[0.24em] text-cyan-200">
-          {mode === 'speaking' ? 'SANIYA SPEAKING' : mode === 'listening' ? 'SANIYA LISTENING' : 'SANIYA STANDBY'}
-        </p>
-        <p className="mt-3 min-h-6 text-sm leading-6 text-slate-300">{transcript}</p>
+      <div className="mt-8 flex flex-col items-center gap-2">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={mode}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="font-mono text-xs uppercase tracking-widest text-cyan-400/80"
+          >
+            {mode.toUpperCase()} MODE
+          </motion.p>
+        </AnimatePresence>
+        
+        <div className="glass-panel px-6 py-3 rounded-full border border-white/5 bg-black/40 min-w-[300px] text-center">
+          <p className="text-sm text-slate-300 font-light italic">
+            {transcript}
+          </p>
+        </div>
       </div>
+
+      <style jsx>{`
+        .hologram-shell {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+        }
+        .hologram-stage {
+          width: 500px;
+          height: 500px;
+          position: relative;
+          filter: drop-shadow(0 0 30px rgba(125, 245, 255, 0.2));
+        }
+        .mode-speaking .hologram-stage {
+          filter: drop-shadow(0 0 50px rgba(125, 245, 255, 0.4));
+        }
+      `}</style>
     </div>
   );
 }
