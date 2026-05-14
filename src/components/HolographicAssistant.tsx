@@ -593,7 +593,7 @@ export default function HolographicAssistant({
       recognition.stop();
       window.speechSynthesis?.cancel();
     };
-  }, [activateAssistant, devLog]);
+  }, [activateAssistant, devLog, speak]);
 
   useEffect(() => {
     if (!onVoiceStatusChange) return;
