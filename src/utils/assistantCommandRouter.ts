@@ -116,10 +116,29 @@ export function performAssistantAction(action: AssistantAction) {
   if (action.type === 'open_app') {
     const confirmed = window.confirm(`Allow Jarvis to open "${action.app}" on this computer?`);
     if (!confirmed) return;
-    void fetch('/api/desktop/open-app', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ app: action.app, confirmed: true }),
-    }).catch(() => {});
+    void (async () => {
+      try {
+        const res = await fetch('/api/desktop/open-app', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ app: action.app, confirmed: true }),
+        });
+
+        if (res.ok) return;
+        const payload = await res.json().catch(() => null);
+        const hint =
+          payload && typeof payload === 'object' && 'hint' in payload && typeof (payload as any).hint === 'string'
+            ? (payload as any).hint
+            : null;
+        const error =
+          payload && typeof payload === 'object' && 'error' in payload && typeof (payload as any).error === 'string'
+            ? (payload as any).error
+            : null;
+
+        window.alert(hint ?? error ?? `Unable to open "${action.app}".`);
+      } catch {
+        window.alert(`Unable to open "${action.app}".`);
+      }
+    })();
   }
 }
