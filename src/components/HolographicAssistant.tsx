@@ -286,8 +286,13 @@ function NeuralFace({ mode, speechPulse }: { mode: AssistantMode; speechPulse: n
 
 function HologramScene({ mode, speechPulse }: { mode: AssistantMode; speechPulse: number }) {
   return (
-    <Canvas camera={{ position: [0, 0, 6], fov: 35 }} gl={{ antialias: true, alpha: true }}>
-      <color attach="background" args={['transparent']} />
+    <Canvas
+      camera={{ position: [0, 0, 6], fov: 35 }}
+      gl={{ antialias: true, alpha: true }}
+      onCreated={({ gl }) => {
+        gl.setClearColor(0x000000, 0);
+      }}
+    >
       <ambientLight intensity={0.2} />
       <pointLight position={[10, 10, 10]} intensity={1} color="#7df5ff" />
       <pointLight position={[-10, -10, -10]} intensity={0.5} color="#ff4fd8" />

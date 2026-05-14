@@ -66,6 +66,7 @@ export default function HomePage() {
       <Head>
         <title>JARVIS SANA AI OS</title>
         <meta name="description" content="Futuristic JARVIS SANA AI OS dashboard" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </Head>
 
       <main className="min-h-screen overflow-hidden px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
