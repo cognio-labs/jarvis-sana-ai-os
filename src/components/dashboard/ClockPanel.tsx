@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import HoloPanel from './HoloPanel';
 
@@ -31,10 +31,12 @@ function Radar() {
 }
 
 export default function ClockPanel() {
-  const initial = useMemo(() => new Date(), []);
-  const [now, setNow] = useState<Date>(initial);
+  // Avoid SSR hydration mismatches by rendering a stable placeholder on the server,
+  // then initializing the clock on the client after mount.
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    setNow(new Date());
     const id = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(id);
   }, []);
@@ -43,12 +45,13 @@ export default function ClockPanel() {
     <HoloPanel className="h-full">
       <div className="flex items-center justify-between gap-5">
         <div>
-          <div className="text-3xl font-semibold text-white">{formatTime(now)}</div>
-          <div className="mt-1 font-mono text-xs uppercase tracking-[0.24em] text-slate-400">{formatDate(now)}</div>
+          <div className="text-3xl font-semibold text-white">{now ? formatTime(now) : '--:--:--'}</div>
+          <div className="mt-1 font-mono text-xs uppercase tracking-[0.24em] text-slate-400">
+            {now ? formatDate(now) : 'Initializing clock…'}
+          </div>
         </div>
         <Radar />
       </div>
     </HoloPanel>
   );
 }
-
