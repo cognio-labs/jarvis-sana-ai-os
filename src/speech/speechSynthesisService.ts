@@ -88,7 +88,10 @@ export class SpeechSynthesisService {
       logger.warn(`Preferred voice "${targetVoiceName}" not found. Using default system voice.`);
       // Fallback to a common default if available, or just let the system use its default.
       // Example fallback: find a female voice if possible
-      const femaleVoice = this.voices.find(v => v.gender === 'female' || (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('ava')));
+      const femaleVoice = this.voices.find(v => {
+        const name = v.name.toLowerCase();
+        return name.includes('female') || name.includes('zira') || name.includes('ava');
+      });
       if (femaleVoice) {
         this.options.voiceName = femaleVoice.name;
         logger.info(`Falling back to female voice: ${this.options.voiceName}`);
@@ -107,7 +110,7 @@ export class SpeechSynthesisService {
   public speak(text: string, onEnd?: () => void, onError?: (error: SpeechSynthesisErrorEvent) => void): void {
     if (!this.synth) {
       logger.error('SpeechSynthesis not available. Cannot speak.');
-      onError?.(new SpeechSynthesisErrorEvent('synth_unavailable', { error: new Error('SpeechSynthesis not available') }));
+      onError?.({ error: 'synthesis-failed' } as SpeechSynthesisErrorEvent);
       return;
     }
 
@@ -127,7 +130,10 @@ export class SpeechSynthesisService {
       utterance.voice = voice;
     } else {
       // If preferred voice not found, try to find a fallback (e.g., female voice)
-      const fallbackVoice = this.voices.find(v => v.gender === 'female' || v.name.toLowerCase().includes('female'));
+      const fallbackVoice = this.voices.find(v => {
+        const name = v.name.toLowerCase();
+        return name.includes('female') || name.includes('zira') || name.includes('ava');
+      });
       if (fallbackVoice) {
         utterance.voice = fallbackVoice;
         logger.debug(`Using fallback voice: ${fallbackVoice.name}`);

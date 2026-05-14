@@ -11,7 +11,7 @@ interface AudioServiceOptions {
 export class AudioService {
   private audioContext: AudioContext | null = null;
   private startupBuffer: AudioBuffer | null = null;
-  private activationBuffer: 2 | null = null;
+  private activationBuffer: AudioBuffer | null = null;
   private ambientBuffer: AudioBuffer | null = null;
   private activeSources: Set<AudioBufferSourceNode> = new Set(); // To manage active sounds
 

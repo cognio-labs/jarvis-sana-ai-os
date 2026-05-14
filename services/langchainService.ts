@@ -1,9 +1,9 @@
 // services/langchainService.ts
 
 import { ChatOpenAI } from '@langchain/openai'; // For OpenAI-compatible models (incl. OpenRouter, Ollama)
-import { AIMessage, ChatMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { BufferMemory, ChatMessageHistory } from 'langchain/memory';
-import { ConversationChain } from 'langchain/chains';
+import { AIMessage, BaseMessage, ChatMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { ConversationChain } from '@langchain/classic/chains';
+import { BufferMemory, ChatMessageHistory } from '@langchain/classic/memory';
 import { PromptTemplate } from '@langchain/core/prompts';
 import logger from '../utils/logger';
 
@@ -16,6 +16,33 @@ interface LangChainServiceOptions {
   openAIApiKey?: string; // If not using default env var
   ollamaBaseUrl?: string; // For connecting to local Ollama instance
   modelName?: string; // Default model for LangChain
+}
+
+type AppConversationMessage = {
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+};
+
+type PersistableConversationMessage = BaseMessage | AppConversationMessage;
+
+function isLangChainMessage(message: PersistableConversationMessage): message is BaseMessage {
+  return typeof (message as BaseMessage)._getType === 'function';
+}
+
+function toLangChainMessage(message: PersistableConversationMessage): BaseMessage {
+  if (isLangChainMessage(message)) {
+    return message;
+  }
+
+  switch (message.role) {
+    case 'assistant':
+      return new AIMessage(message.content);
+    case 'system':
+      return new SystemMessage(message.content);
+    case 'user':
+    default:
+      return new HumanMessage(message.content);
+  }
 }
 
 export class LangChainService {
@@ -110,7 +137,7 @@ export class LangChainService {
    * @param conversationId The ID of the conversation to load.
    * @returns A promise resolving to an array of Langchain messages.
    */
-  public async loadConversation(conversationId: string): Promise<ChatMessage[]> {
+  public async loadConversation(conversationId: string): Promise<AppConversationMessage[]> {
     logger.debug('Attempting to load conversation history.', { conversationId });
     // Placeholder for loading from Vector DB or other persistent storage.
     // This would involve querying the vector store based on conversationId.
@@ -135,7 +162,7 @@ export class LangChainService {
    * @param messages An array of Langchain ChatMessage objects.
    * @param conversationId The ID of the conversation to save.
    */
-  public async saveConversation(messages: ChatMessage[], conversationId?: string): Promise<void> {
+  public async saveConversation(messages: PersistableConversationMessage[], conversationId?: string): Promise<void> {
     logger.debug('Attempting to save conversation history.', { conversationId, messageCount: messages.length });
     // Placeholder for saving to Vector DB or other persistent storage.
     // If `conversationId` is provided, associate messages with it.
@@ -149,7 +176,7 @@ export class LangChainService {
       // This is a simplified approach; real persistence needs more logic.
       this.memory.chatHistory = new ChatMessageHistory(); // Reset in-memory history
       for (const msg of messages) {
-        this.memory.chatHistory.addMessage(msg); // Add serialized messages
+        this.memory.chatHistory.addMessage(toLangChainMessage(msg)); // Add serialized messages
       }
       logger.debug('Updated in-memory BufferMemory history.', { conversationId });
     }
@@ -169,7 +196,7 @@ export class LangChainService {
    */
   public async processUserInput(
     userInput: string,
-    history: ChatMessage[] = []
+    history: BaseMessage[] = []
   ): Promise<string> {
     logger.debug('Processing user input via LangChain chain.', { userInput, historyLength: history.length });
 

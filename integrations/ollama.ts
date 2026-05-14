@@ -29,6 +29,7 @@ interface OllamaChatResponse {
   created_at: string;
   response: string; // Main content for non-streaming
   done: boolean;
+  error?: string;
   context?: number[]; // Session context for multi-turn
   total_duration?: number;
   load_duration?: number;
@@ -185,19 +186,12 @@ export class OllamaService {
         timeout: timeout,
       });
 
-      // Convert the ReadableStream to an async iterable
-      const streamReader = response.data.getReader();
       const decoder = new TextDecoder('utf-8');
 
       let buffer = ''; // Buffer to handle incomplete JSON lines
 
-      while (true) {
-        const { done, value } = await streamReader.read();
-        if (done) {
-          break; // End of stream
-        }
-
-        buffer += decoder.decode(value, { stream: true }); // Process stream chunk
+      for await (const value of response.data) {
+        buffer += decoder.decode(value as Buffer, { stream: true }); // Process stream chunk
 
         const lines = buffer.split('\n');
         buffer = lines.pop() || ''; // Set buffer to the last possibly incomplete line

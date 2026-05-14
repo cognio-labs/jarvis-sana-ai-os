@@ -181,6 +181,10 @@ export class CommandHandler {
     return { response: 'Thinking...', state: AssistantState.PROCESSING }; // Initial response
   }
 
+  private speak(text: string): void {
+    this.speechSynthesisService.speak(text);
+  }
+
   private handleProcessTask(args?: string[]): CommandResult {
     const taskDetails = args?.join(' ') || 'default task';
     // Trigger the asynchronous task system

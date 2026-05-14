@@ -317,7 +317,7 @@ export class AssistantCoreService {
   }
 
   // Example method to handle command input from UI or other sources
-  public handleInput(input: string, type: 'text' | 'voice' | 'clap' = 'text'): void {
+  public handleInput(input: string, type: 'text' | 'voice' | 'clap' | 'command' = 'text'): void {
       if (type === 'text' || type === 'command') {
           // Process text commands directly
           this.processVoiceCommand(input);

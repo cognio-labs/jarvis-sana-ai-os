@@ -137,7 +137,7 @@ export class WakewordService {
    * Handles errors during SpeechRecognition.
    */
   private handleError(event: SpeechRecognitionErrorEvent): void {
-    logger.error(`Wakeword recognition error: ${event.error}`, { code: event.code });
+    logger.error(`Wakeword recognition error: ${event.error}`);
     this.isListening = false;
     // Handle specific errors, e.g., no-speech, network errors
     if (event.error === 'no-speech') {

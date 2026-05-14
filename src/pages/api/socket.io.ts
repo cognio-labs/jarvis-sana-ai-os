@@ -1,5 +1,6 @@
 // src/pages/api/socket.io.ts
-import { Server, Socket } from 'socket.io';
+import type { Server as HttpServer } from 'http';
+import { Server, Socket as SocketIOSocket } from 'socket.io';
 import { NextApiRequest, NextApiResponse } from 'next';
 import logger from '@utils/logger';
 
@@ -10,7 +11,13 @@ import logger from '@utils/logger';
 // Global WebSocket server instance to be shared across requests or managed via a singleton
 let io: Server | null = null;
 
-const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
+type SocketApiResponse = NextApiResponse & {
+  socket: NextApiResponse['socket'] & {
+    server: HttpServer;
+  };
+};
+
+const SocketHandler = (req: NextApiRequest, res: SocketApiResponse) => {
   if (!io) {
     logger.info('Initializing Socket.IO server...');
     const httpServer = res.socket.server;
@@ -27,7 +34,7 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
       // e.g., cors: { origin: "*", methods: ["GET", "POST"] }
     });
 
-    io.on('connection', (socket: Socket) => {
+    io.on('connection', (socket: SocketIOSocket) => {
       logger.info(`A client connected to Socket.IO: ${socket.id}`);
 
       // Example: Forward agent messages to connected clients

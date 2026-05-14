@@ -8,12 +8,7 @@
     // Add or override rules here
     "@next/next/no-img-element": "off", // Example: Allow <img> elements if needed
     "react/jsx-key": "warn", // Warn about missing keys in JSX
-    "no-console": "warn", // Warn about console logs in development, error in production
-    "import/order": ["warn", {
-      "groups": ["type", "builtin", "external", "internal", "parent", "sibling", "index"],
-      "newlines-between": "always",
-      "alphabetize": { "order": "asc", "ignoreCase": true }
-    }]
+    "no-console": "warn" // Warn about console logs in development, error in production
   },
   "ignorePatterns": ["node_modules/", ".next/", "dist/", "*.js", "*.jsx"],
   "overrides": [

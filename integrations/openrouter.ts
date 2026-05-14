@@ -1,6 +1,6 @@
 // integrations/openrouter.ts
 
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import Bottleneck from 'bottleneck'; // For rate limiting
 import logger from '../utils/logger';
 import { AgentMessage } from '../agents/aiAgentManager';
@@ -91,7 +91,7 @@ const apiClient: AxiosInstance = axios.create({
 });
 
 // Interceptor for rate limiting and error handling on requests
-apiClient.interceptors.request.use(limiter.wrap(async (config: AxiosRequestConfig) => {
+apiClient.interceptors.request.use(limiter.wrap(async (config: InternalAxiosRequestConfig) => {
   // Add X-LLM-Provider header if needed, can be dynamic
   // config.headers['X-LLM-Provider'] = 'OpenRouter'; // Example
   return config;
