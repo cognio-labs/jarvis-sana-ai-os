@@ -86,7 +86,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   const result = openWindowsApp(entry);
-  if (!result.ok) {
+  if (result.ok === false) {
     logger.error('Failed to open allowed app', { app, error: result.error, detail: result.detail });
     return res.status(500).json({ ok: false, error: result.error, detail: result.detail });
   }
@@ -94,4 +94,3 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   logger.info('Opened app via desktop helper', { app });
   return res.status(200).json({ ok: true, app });
 }
-
