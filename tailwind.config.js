@@ -22,8 +22,6 @@ module.exports = {
     },
   },
   plugins: [
-    // Add Tailwind CSS plugins here if needed
-    require('@tailwindcss/forms'), // Example plugin for form styling
   ],
   // Prefix for Tailwind CSS classes (optional)
   // prefix: 'tw-',
