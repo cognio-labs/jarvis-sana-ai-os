@@ -104,7 +104,11 @@ export default function HomePage() {
                 </div>
 
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <HolographicAssistant onVoiceStatusChange={handleVoiceStatus} showNeuralFace={false} />
+                  <HolographicAssistant
+                    onVoiceStatusChange={handleVoiceStatus}
+                    showNeuralFace={false}
+                    minimalHud
+                  />
                 </div>
 
                 <div className="relative z-10 mb-6 text-center">
