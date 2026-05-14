@@ -4,10 +4,10 @@
 
 :root {
   color-scheme: dark;
-  --panel: rgba(10, 18, 30, 0.62);
-  --panel-strong: rgba(13, 24, 38, 0.78);
-  --line: rgba(125, 245, 255, 0.18);
-  --cyan: #7df5ff;
+  --panel: rgba(4, 21, 45, 0.7);
+  --panel-strong: rgba(4, 21, 45, 0.82);
+  --line: rgba(0, 243, 255, 0.3);
+  --cyan: #00f3ff;
   --magenta: #ff4fd8;
   --amber: #ffd166;
   --emerald: #7cffb2;
@@ -25,10 +25,10 @@ body,
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(125, 245, 255, 0.12), transparent 28rem),
-    radial-gradient(circle at 82% 8%, rgba(255, 79, 216, 0.12), transparent 24rem),
-    linear-gradient(135deg, #05070c 0%, #09111c 45%, #070712 100%);
+  font-family: 'Share Tech Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+  background-color: #030b14;
+  background-image: radial-gradient(circle at center, #061930 0%, #030b14 100%);
   color: #eef7ff;
   overflow-x: hidden;
 }
