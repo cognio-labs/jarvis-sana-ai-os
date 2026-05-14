@@ -341,7 +341,7 @@ function createPlaceholderService(name: string, instance: any) {
          initialize: async () => {},
          start: () => {},
          stop: () => {},
-         speak: async (text: string) => console.log(`[${name} - SPEAKING]: ${text}`),
+         speak: async (text: string) => logger.info(`[${name} - SPEAKING]: ${text}`),
          updateStatus: (status: string) => {},
          updateAssistantState: (state: AssistantState) => {},
          getAvailableCommands: () => [],
