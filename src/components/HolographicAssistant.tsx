@@ -15,6 +15,10 @@ type BrowserWindow = Window & {
 
 const welcomeLine = 'Welcome back Aryan Boss.';
 const particleCount = 800;
+const VOICE_DEBUG_ENABLED =
+  process.env.NODE_ENV !== 'production' ||
+  process.env.NEXT_PUBLIC_VOICE_DEBUG === '1' ||
+  process.env.NEXT_PUBLIC_VOICE_DEBUG === 'true';
 
 // --- SHADERS ---
 
@@ -310,6 +314,12 @@ export default function HolographicAssistant() {
   const allowAutoRestartRef = useRef(true);
   const startAttemptInFlightRef = useRef(false);
 
+  const devLog = useCallback((...args: unknown[]) => {
+    if (!VOICE_DEBUG_ENABLED) return;
+    // eslint-disable-next-line no-console -- Requested: runtime voice activation debug logs.
+    console.log(...args);
+  }, []);
+
   const speak = useCallback((text: string) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
@@ -342,17 +352,14 @@ export default function HolographicAssistant() {
   const activateAssistant = useCallback(() => {
     if (hasGreetedRef.current) return;
     hasGreetedRef.current = true;
-    if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console -- Requested: runtime voice activation debug logs.
-      console.log('[voice] assistant activated');
-    }
+    devLog('[voice] assistant activated');
     setMode('waking');
     setTranscript('System initializing...');
     
     setTimeout(() => {
       speak(welcomeLine);
     }, 1000);
-  }, [speak]);
+  }, [devLog, speak]);
 
   useEffect(() => {
     const browserWindow = window as BrowserWindow;
@@ -360,6 +367,7 @@ export default function HolographicAssistant() {
 
     if (!Recognition) {
       setTranscript('Speech recognition unavailable');
+      devLog('[voice] blocked: SpeechRecognition unsupported');
       return;
     }
 
@@ -368,13 +376,7 @@ export default function HolographicAssistant() {
     recognition.interimResults = true;
     recognition.lang = 'en-US';
     recognitionRef.current = recognition;
-
-    const devLog = (...args: unknown[]) => {
-      if (process.env.NODE_ENV !== 'production') {
-        // eslint-disable-next-line no-console -- Requested: runtime voice activation debug logs.
-        console.log(...args);
-      }
-    };
+    devLog('[voice] SpeechRecognition supported');
 
     const scheduleRestart = () => {
       if (!allowAutoRestartRef.current) return;
@@ -393,13 +395,11 @@ export default function HolographicAssistant() {
 
     const ensureMicPermission = async () => {
       if (!window.isSecureContext) {
-        setTranscript('Voice requires HTTPS or localhost');
         devLog('[voice] blocked: insecure context');
         return false;
       }
 
       if (!navigator.mediaDevices?.getUserMedia) {
-        setTranscript('Microphone unavailable');
         devLog('[voice] blocked: navigator.mediaDevices.getUserMedia unavailable');
         return false;
       }
@@ -427,7 +427,7 @@ export default function HolographicAssistant() {
           setIsWakewordListening(false);
           setIsMicCapturing(false);
           if (source === 'auto') {
-            setTranscript('Click anywhere to enable microphone');
+            setTranscript(window.isSecureContext ? 'Click anywhere to enable microphone' : 'Voice requires HTTPS or localhost');
             devLog('[voice] wakeword listener pending user gesture');
           }
           return;
@@ -441,6 +441,7 @@ export default function HolographicAssistant() {
           recognitionStateRef.current = 'idle';
           allowAutoRestartRef.current = false;
           setIsWakewordListening(false);
+          setTranscript('Click anywhere to enable microphone');
           devLog('[voice] speech recognition failed to start', error);
         }
       } finally {
@@ -500,16 +501,28 @@ export default function HolographicAssistant() {
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         allowAutoRestartRef.current = false;
         setTranscript('Click anywhere to enable microphone');
+      } else if (event.error === 'audio-capture') {
+        allowAutoRestartRef.current = false;
+        setTranscript('No microphone detected');
+      } else if (event.error === 'network') {
+        setTranscript('Speech recognition network error');
+      } else if (event.error === 'language-not-supported') {
+        allowAutoRestartRef.current = false;
+        setTranscript('Speech recognition language not supported');
       }
     };
 
     const clickToEnable = () => startWakewordListener('gesture').catch(() => {});
     window.addEventListener('click', clickToEnable);
+    window.addEventListener('pointerdown', clickToEnable);
+    window.addEventListener('keydown', clickToEnable);
     startWakewordListener('auto').catch(() => {});
 
     return () => {
       if (restartTimerRef.current) window.clearTimeout(restartTimerRef.current);
       window.removeEventListener('click', clickToEnable);
+      window.removeEventListener('pointerdown', clickToEnable);
+      window.removeEventListener('keydown', clickToEnable);
       recognition.onend = null;
       recognition.onstart = null;
       recognition.onresult = null;
@@ -519,7 +532,7 @@ export default function HolographicAssistant() {
       recognition.stop();
       window.speechSynthesis?.cancel();
     };
-  }, [activateAssistant]);
+  }, [activateAssistant, devLog]);
 
   return (
     <div className={`hologram-shell mode-${mode}`}>
