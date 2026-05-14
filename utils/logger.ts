@@ -40,6 +40,7 @@ const logger: Logger = (level, message, context) => {
   }
 
   // Also log to console for real-time feedback
+  // eslint-disable-next-line no-console -- Intentional: keep real-time logs while persisting to file.
   console.log(logEntry);
 
   if (context) {
@@ -49,6 +50,7 @@ const logger: Logger = (level, message, context) => {
     } catch {
       // non-fatal
     }
+    // eslint-disable-next-line no-console -- Intentional: keep real-time logs while persisting to file.
     console.log('Context:', contextString);
   }
 };
