@@ -607,7 +607,7 @@ export default function HolographicAssistant({
         </div>
       </div>
 
-      <style jsx>{`
+        <style jsx>{`
         .hologram-shell {
           width: 100%;
           height: 100%;
@@ -618,8 +618,8 @@ export default function HolographicAssistant({
           position: relative;
         }
         .hologram-stage {
-          width: 500px;
-          height: 500px;
+          width: min(540px, 92vw);
+          height: min(540px, 92vw);
           position: relative;
           filter: drop-shadow(0 0 30px rgba(125, 245, 255, 0.2));
         }
