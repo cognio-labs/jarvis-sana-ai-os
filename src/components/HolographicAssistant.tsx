@@ -284,7 +284,15 @@ function NeuralFace({ mode, speechPulse }: { mode: AssistantMode; speechPulse: n
   );
 }
 
-function HologramScene({ mode, speechPulse }: { mode: AssistantMode; speechPulse: number }) {
+function HologramScene({
+  mode,
+  speechPulse,
+  showNeuralFace,
+}: {
+  mode: AssistantMode;
+  speechPulse: number;
+  showNeuralFace: boolean;
+}) {
   return (
     <Canvas
       camera={{ position: [0, 0, 6], fov: 35 }}
@@ -298,7 +306,7 @@ function HologramScene({ mode, speechPulse }: { mode: AssistantMode; speechPulse
       <pointLight position={[-10, -10, -10]} intensity={0.5} color="#ff4fd8" />
       
       <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
-        <NeuralFace mode={mode} speechPulse={speechPulse} />
+        {showNeuralFace ? <NeuralFace mode={mode} speechPulse={speechPulse} /> : null}
         <HUDRings mode={mode} />
       </Float>
       
@@ -315,8 +323,10 @@ function HologramScene({ mode, speechPulse }: { mode: AssistantMode; speechPulse
 
 export default function HolographicAssistant({
   onVoiceStatusChange,
+  showNeuralFace = true,
 }: {
   onVoiceStatusChange?: (status: VoiceStatus) => void;
+  showNeuralFace?: boolean;
 }) {
   const [mode, setMode] = useState<AssistantMode>('standby');
   const [transcript, setTranscript] = useState('Say "Hey Saniya"');
@@ -566,7 +576,7 @@ export default function HolographicAssistant({
         }}
         transition={{ duration: 0.8 }}
       >
-        <HologramScene mode={mode} speechPulse={speechPulse} />
+        <HologramScene mode={mode} speechPulse={speechPulse} showNeuralFace={showNeuralFace} />
         
         {/* Decorative HUD overlays */}
         <div className="absolute inset-0 pointer-events-none border border-cyan-500/10 rounded-full scale-110 animate-pulse" />
