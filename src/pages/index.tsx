@@ -1,4 +1,9 @@
 import Head from 'next/head';
+import dynamic from 'next/dynamic';
+
+const HolographicAssistant = dynamic(() => import('../components/HolographicAssistant'), {
+  ssr: false,
+});
 
 const systems = [
   { name: 'Assistant Core', state: 'Listening', metric: '98%', tone: 'text-cyan-200' },
@@ -87,23 +92,7 @@ export default function HomePage() {
                 Holographic Assistant Core
               </div>
 
-              <div className="relative flex h-72 w-72 items-center justify-center sm:h-96 sm:w-96">
-                <div className="absolute inset-6 rounded-full border border-cyan-200/20" />
-                <div className="absolute inset-12 rounded-full border border-fuchsia-200/20" />
-                <div className="absolute h-full w-px bg-cyan-200/20" />
-                <div className="absolute h-px w-full bg-cyan-200/20" />
-                <div className="assistant-orb h-36 w-36 rounded-full sm:h-44 sm:w-44" />
-              </div>
-
-              <div className="mt-5 max-w-xl text-center">
-                <p className="font-mono text-sm uppercase tracking-[0.24em] text-cyan-200">
-                  Neural Link Stable
-                </p>
-                <p className="mt-3 text-sm leading-6 text-slate-300">
-                  Assistant is staged for voice activation, command parsing,
-                  AI routing, and live console telemetry.
-                </p>
-              </div>
+              <HolographicAssistant />
             </section>
 
             <aside className="panel-rise glass-panel rounded-lg p-5" style={{ animationDelay: '270ms' }}>

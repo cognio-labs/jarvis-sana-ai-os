@@ -88,6 +88,94 @@ body::before {
     animation: orb-pulse 3.4s ease-in-out infinite, orb-spin 12s linear infinite;
   }
 
+  .hologram-shell {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    width: min(100%, 40rem);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hologram-stage {
+    position: relative;
+    height: clamp(23rem, 46vw, 34rem);
+    width: min(100%, 36rem);
+    isolation: isolate;
+  }
+
+  .hologram-stage canvas {
+    position: absolute !important;
+    inset: 0;
+    z-index: 3;
+  }
+
+  .hologram-stage::before,
+  .hologram-stage::after {
+    content: "";
+    position: absolute;
+    inset: 11% 5% 18%;
+    z-index: 1;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .hologram-stage::before {
+    border: 1px solid rgba(125, 245, 255, 0.28);
+    box-shadow:
+      0 0 28px rgba(125, 245, 255, 0.18),
+      inset 0 0 56px rgba(125, 245, 255, 0.1);
+    animation: holo-ring-drift 9s linear infinite;
+  }
+
+  .hologram-stage::after {
+    inset: 17% 13% 25%;
+    border: 1px solid rgba(255, 79, 216, 0.2);
+    box-shadow: inset 0 0 44px rgba(255, 79, 216, 0.08);
+    animation: holo-ring-drift 13s linear infinite reverse;
+  }
+
+  .hologram-reticle {
+    position: absolute;
+    inset: 6% 0 17%;
+    z-index: 2;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, transparent 49.8%, rgba(125, 245, 255, 0.28) 50%, transparent 50.2%),
+      linear-gradient(0deg, transparent 49.8%, rgba(125, 245, 255, 0.22) 50%, transparent 50.2%),
+      repeating-radial-gradient(circle, transparent 0 3.5rem, rgba(125, 245, 255, 0.2) 3.55rem 3.6rem);
+    mask-image: radial-gradient(circle, rgba(0, 0, 0, 0.95), transparent 72%);
+    animation: holo-scan 4.8s ease-in-out infinite;
+  }
+
+  .hologram-platform {
+    position: absolute;
+    left: 50%;
+    bottom: 5%;
+    z-index: 2;
+    width: min(78%, 25rem);
+    aspect-ratio: 4 / 1;
+    transform: translateX(-50%) perspective(18rem) rotateX(62deg);
+    border-radius: 50%;
+    background:
+      repeating-radial-gradient(circle, rgba(125, 245, 255, 0.42) 0 1px, transparent 2px 1.35rem),
+      radial-gradient(circle, rgba(125, 245, 255, 0.36), transparent 67%);
+    box-shadow:
+      0 0 34px rgba(125, 245, 255, 0.34),
+      0 0 90px rgba(59, 220, 255, 0.2);
+    animation: platform-pulse 2.8s ease-in-out infinite;
+  }
+
+  .hologram-speaking .hologram-stage {
+    filter: drop-shadow(0 0 24px rgba(125, 245, 255, 0.38)) saturate(1.2);
+  }
+
+  .hologram-listening .hologram-platform,
+  .hologram-speaking .hologram-platform {
+    animation-duration: 1.5s;
+  }
+
   .wave-bar {
     animation: voice-wave 1.18s ease-in-out infinite;
     transform-origin: center;
@@ -125,6 +213,40 @@ body::before {
 @keyframes orb-spin {
   to {
     rotate: 360deg;
+  }
+}
+
+@keyframes holo-ring-drift {
+  0% {
+    transform: rotate(0deg) scale(0.98);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.02);
+  }
+  100% {
+    transform: rotate(360deg) scale(0.98);
+  }
+}
+
+@keyframes holo-scan {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.92;
+    transform: translateY(-0.35rem);
+  }
+}
+
+@keyframes platform-pulse {
+  0%, 100% {
+    opacity: 0.72;
+    filter: saturate(1);
+  }
+  50% {
+    opacity: 1;
+    filter: saturate(1.45);
   }
 }
 
