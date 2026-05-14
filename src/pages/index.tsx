@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { VoiceStatus } from '../components/HolographicAssistant';
 import ActiveAgentsPanel from '../components/dashboard/ActiveAgentsPanel';
 import AiConsolePanel from '../components/dashboard/AiConsolePanel';
+import AssistantFaceOverlay from '../components/dashboard/AssistantFaceOverlay';
 import BrandPanel from '../components/dashboard/BrandPanel';
 import ClockPanel from '../components/dashboard/ClockPanel';
 import CommandConsolePanel from '../components/dashboard/CommandConsolePanel';
@@ -103,7 +104,11 @@ export default function HomePage() {
                   <span className="h-1.5 w-1.5 rounded-full bg-cyan-300/80 shadow-[0_0_14px_rgba(125,245,255,0.7)]" />
                 </div>
 
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 z-[6]">
+                  <AssistantFaceOverlay voice={voice} />
+                </div>
+
+                <div className="absolute inset-0 z-[7] flex items-center justify-center">
                   <HolographicAssistant
                     onVoiceStatusChange={handleVoiceStatus}
                     showNeuralFace={false}

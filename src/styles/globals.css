@@ -191,6 +191,83 @@ body::after {
   .panel-rise {
     animation: panel-rise 0.72s ease-out both;
   }
+
+  .assistant-face-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 6;
+  }
+
+  .assistant-eye {
+    position: absolute;
+    width: 18%;
+    height: 9%;
+    border-radius: 9999px;
+    overflow: hidden;
+    opacity: 0.75;
+    mix-blend-mode: screen;
+    filter: drop-shadow(0 0 18px rgba(0, 243, 255, 0.18));
+  }
+
+  .assistant-eye-left {
+    left: 33%;
+    top: 40%;
+    transform: rotate(-2deg);
+  }
+
+  .assistant-eye-right {
+    left: 49%;
+    top: 40%;
+    transform: rotate(2deg);
+  }
+
+  .assistant-eye-pupil {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 22%;
+    height: 70%;
+    transform: translate(-50%, -50%);
+    border-radius: 9999px;
+    background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(0, 243, 255, 0.55) 35%, rgba(0, 243, 255, 0.08) 70%, transparent 76%);
+    box-shadow: 0 0 18px rgba(0, 243, 255, 0.35);
+  }
+
+  .assistant-eye-lid {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(3, 11, 20, 0.92), rgba(3, 11, 20, 0.25), rgba(3, 11, 20, 0.92));
+    transform-origin: 50% 50%;
+    transform: scaleY(0);
+    opacity: 0.95;
+  }
+
+  .assistant-mouth {
+    position: absolute;
+    left: 50%;
+    top: 62%;
+    width: 22%;
+    height: 8%;
+    transform: translateX(-50%);
+    border-radius: 9999px;
+    opacity: 0.75;
+    mix-blend-mode: screen;
+    filter: drop-shadow(0 0 18px rgba(0, 243, 255, 0.18));
+  }
+
+  .assistant-mouth-inner {
+    position: absolute;
+    left: 50%;
+    top: 55%;
+    width: 70%;
+    height: 34%;
+    transform: translate(-50%, -50%);
+    border-radius: 9999px;
+    border: 1px solid rgba(0, 243, 255, 0.35);
+    background: radial-gradient(circle at 50% 50%, rgba(0, 243, 255, 0.18), transparent 70%);
+    box-shadow: inset 0 0 12px rgba(0, 243, 255, 0.12);
+  }
 }
 
 @keyframes scan-sheen {
@@ -284,6 +361,76 @@ body::after {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes assistant-gaze {
+  0%, 100% {
+    transform: translate(-50%, -50%) translateX(-8%) translateY(0%);
+  }
+  30% {
+    transform: translate(-50%, -50%) translateX(10%) translateY(-4%);
+  }
+  60% {
+    transform: translate(-50%, -50%) translateX(0%) translateY(6%);
+  }
+}
+
+@keyframes assistant-blink {
+  0%, 92%, 100% {
+    transform: scaleY(0);
+  }
+  94% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes assistant-mouth-speak {
+  0%, 100% {
+    transform: translate(-50%, -50%) scaleY(0.8);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(-50%, -50%) scaleY(1.55);
+    opacity: 1;
+  }
+}
+
+@keyframes assistant-smile {
+  0%, 100% {
+    border-radius: 9999px;
+    transform: translate(-50%, -50%) scaleX(1) scaleY(0.85);
+  }
+  50% {
+    border-radius: 9999px;
+    transform: translate(-50%, -50%) scaleX(1.08) scaleY(0.78);
+  }
+}
+
+.assistant-expression-standby .assistant-eye-pupil {
+  animation: assistant-gaze 10s ease-in-out infinite;
+}
+
+.assistant-expression-listening .assistant-eye-pupil {
+  animation: assistant-gaze 6.5s ease-in-out infinite;
+}
+
+.assistant-expression-waking .assistant-eye-pupil {
+  animation: assistant-gaze 4.5s ease-in-out infinite;
+}
+
+.assistant-face-overlay .assistant-eye-lid {
+  animation: assistant-blink 5.8s ease-in-out infinite;
+}
+
+.assistant-expression-speaking .assistant-mouth-inner {
+  animation: assistant-mouth-speak 220ms ease-in-out infinite, assistant-smile 1.4s ease-in-out infinite;
+}
+
+.assistant-expression-waking .assistant-mouth-inner {
+  animation: assistant-smile 1.6s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
